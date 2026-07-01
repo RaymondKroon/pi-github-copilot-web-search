@@ -1,0 +1,12 @@
+{
+  "name": "pi-github-copilot-web-search",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@github/copilot": "^1.0.35"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
