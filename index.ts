@@ -22,8 +22,10 @@ import { Type, type Static } from "typebox";
 
 const WEB_SEARCH_TOOL = "web_search";
 
-function isCopilotModel(model: Model<any> | undefined): model is Model<any> {
-  return !!model && model.provider === "github-copilot";
+function isSupportedWebSearchModel(model: Model<any> | undefined): model is Model<any> {
+  // openai-codex is enabled experimentally so the tool can be tested with
+  // Codex models. The request still uses the Copilot SDK backend below.
+  return !!model && (model.provider === "github-copilot" || model.provider === "openai-codex");
 }
 
 function setEquals<T>(a: Set<T>, b: Set<T>) {
@@ -35,7 +37,7 @@ function setEquals<T>(a: Set<T>, b: Set<T>) {
 function missingConfigResult(ctx: ExtensionContext, kind: string) {
   const current = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "none";
   return {
-    content: [{ type: "text" as const, text: `Failed: ${kind} is only available on GitHub Copilot models. Current model: ${current}.` }],
+    content: [{ type: "text" as const, text: `Failed: ${kind} is only available on GitHub Copilot or OpenAI Codex models. Current model: ${current}.` }],
     details: { error: "unsupported_model", kind },
   };
 }
@@ -72,7 +74,7 @@ function createModelScopedToolManager(pi: Pick<ExtensionAPI, "getActiveTools" | 
     const desiredActiveTools = new Set(preferredActiveTools);
     suppressedTools = new Set<string>();
 
-    if (!isCopilotModel(model)) {
+    if (!isSupportedWebSearchModel(model)) {
       desiredActiveTools.delete(WEB_SEARCH_TOOL);
       if (preferredActiveTools.has(WEB_SEARCH_TOOL)) suppressedTools.add(WEB_SEARCH_TOOL);
     }
@@ -364,7 +366,7 @@ async function webSearch(
   ctx: ExtensionContext,
 ) {
   const model = ctx.model;
-  if (!isCopilotModel(model)) return missingConfigResult(ctx, WEB_SEARCH_TOOL);
+  if (!isSupportedWebSearchModel(model)) return missingConfigResult(ctx, WEB_SEARCH_TOOL);
 
   onUpdate?.({
     content: [{ type: "text", text: params.urls?.length ? `Searching and analyzing ${params.urls.length} URL(s)...` : `Searching for "${params.query}"...` }],
@@ -402,9 +404,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: WEB_SEARCH_TOOL,
     label: "Web Search",
-    description: "Search the web using the current GitHub Copilot model.",
-    promptSnippet: "Search the web using the current GitHub Copilot model.",
-    promptGuidelines: ["Use web_search when you need fresh web information while using a GitHub Copilot model."],
+    description: "Search the web using the current GitHub Copilot or OpenAI Codex model.",
+    promptSnippet: "Search the web using the current GitHub Copilot or OpenAI Codex model.",
+    promptGuidelines: ["Use web_search when you need fresh web information while using a GitHub Copilot or OpenAI Codex model."],
     parameters: WebSearchSchema,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return webSearch(toolCallId, params as WebSearchInput, signal, onUpdate, ctx);
